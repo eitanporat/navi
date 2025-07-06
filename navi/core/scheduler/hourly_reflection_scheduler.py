@@ -1,6 +1,6 @@
 """
-Hourly Reflection Scheduler
-Sends comprehensive reflection prompts every hour for AI-driven proactive user engagement
+Reflection Scheduler
+Sends comprehensive reflection prompts every 4 hours for AI-driven proactive user engagement
 """
 
 import os
@@ -18,15 +18,15 @@ logger = logging.getLogger(__name__)
 
 
 class HourlyReflectionScheduler:
-    """Handles hourly reflection analysis and optional proactive messaging"""
+    """Handles 4-hour reflection analysis and optional proactive messaging"""
     
-    def __init__(self, bot: Bot, check_interval_seconds: int = 3600):
+    def __init__(self, bot: Bot, check_interval_seconds: int = 14400):
         """
-        Initialize the hourly reflection scheduler
+        Initialize the reflection scheduler
         
         Args:
             bot: Telegram bot instance for sending notifications
-            check_interval_seconds: How often to run reflections (default 1 hour)
+            check_interval_seconds: How often to run reflections (default 4 hours)
         """
         self.bot = bot
         self.check_interval = check_interval_seconds
@@ -37,14 +37,14 @@ class HourlyReflectionScheduler:
         )
         
     async def start(self):
-        """Start the hourly reflection scheduler"""
+        """Start the reflection scheduler"""
         if self.running:
-            logger.warning("Hourly reflection scheduler already running")
+            logger.warning("Reflection scheduler already running")
             return
             
         self.running = True
         self._task = asyncio.create_task(self._run_scheduler())
-        logger.info(f"Hourly reflection scheduler started (checking every {self.check_interval}s)")
+        logger.info(f"Reflection scheduler started (checking every {self.check_interval}s)")
         
     async def stop(self):
         """Stop the scheduler"""
@@ -55,7 +55,7 @@ class HourlyReflectionScheduler:
                 await self._task
             except asyncio.CancelledError:
                 pass
-        logger.info("Hourly reflection scheduler stopped")
+        logger.info("Reflection scheduler stopped")
         
     async def _run_scheduler(self):
         """Main scheduler loop"""
@@ -66,16 +66,16 @@ class HourlyReflectionScheduler:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in hourly reflection scheduler loop: {e}")
+                logger.error(f"Error in reflection scheduler loop: {e}")
                 await asyncio.sleep(self.check_interval)
                 
     async def _run_hourly_reflections(self):
-        """Run hourly reflections for all users"""
+        """Run 4-hour reflections for all users"""
         try:
             # Load telegram mappings to get user emails
             telegram_mappings = self._load_telegram_mappings()
             
-            logger.info(f"Running hourly reflections for {len(telegram_mappings)} users")
+            logger.info(f"Running 4-hour reflections for {len(telegram_mappings)} users")
             
             for telegram_id, user_email in telegram_mappings.items():
                 try:
@@ -87,7 +87,7 @@ class HourlyReflectionScheduler:
             logger.error(f"Error in run_hourly_reflections: {e}")
             
     async def _process_user_reflection(self, telegram_id: str, user_email: str):
-        """Process hourly reflection for a specific user"""
+        """Process 4-hour reflection for a specific user"""
         try:
             # Get user's state
             state_manager = StateManager(user_email=user_email)
@@ -113,8 +113,8 @@ class HourlyReflectionScheduler:
                 # Add to chat history for conversation UI
                 # Mark as system prompt
                 self._add_to_chat_history(state_manager, 
-                    role="user",
-                    content=f"[SYSTEM: Hourly Reflection Check]\n{reflection_prompt}",
+                    role="system",
+                    content=f"[SYSTEM: 4-Hour Reflection Check]\n{reflection_prompt}",
                     timestamp=datetime.now().isoformat()
                 )
                 
@@ -143,8 +143,8 @@ class HourlyReflectionScheduler:
             else:
                 # AI decided to stay silent - still log to chat history
                 self._add_to_chat_history(state_manager,
-                    role="user",
-                    content=f"[SYSTEM: Hourly Reflection Check - Silent]\n{reflection_prompt}",
+                    role="system",
+                    content=f"[SYSTEM: 4-Hour Reflection Check - Silent]\n{reflection_prompt}",
                     timestamp=datetime.now().isoformat()
                 )
                 
@@ -169,13 +169,13 @@ class HourlyReflectionScheduler:
             # Save the updated state after reflection
             engine.save_state()
             
-            logger.info(f"Completed hourly reflection for {user_email} - Action: {'message_sent' if corrected_response.message_text else 'silent_reflection'}")
+            logger.info(f"Completed 4-hour reflection for {user_email} - Action: {'message_sent' if corrected_response.message_text else 'silent_reflection'}")
             
         except Exception as e:
             logger.error(f"Error processing user reflection for {user_email}: {e}")
             
     def _build_comprehensive_reflection_prompt(self, state: Dict, user_email: str) -> str:
-        """Build a concise hourly reflection prompt"""
+        """Build a concise 4-hour reflection prompt"""
         current_time = datetime.now()
         
         # Get recent conversation data
@@ -195,7 +195,7 @@ class HourlyReflectionScheduler:
                 pass
         
         # Build simplified prompt
-        prompt = f"""🚨 HOURLY REFLECTION TIME 🚨
+        prompt = f"""🚨 4-HOUR REFLECTION TIME 🚨
 
 **CURRENT TIME:** {current_time.strftime('%Y-%m-%d %H:%M:%S')} ({current_time.strftime('%A')})
 
@@ -206,7 +206,7 @@ class HourlyReflectionScheduler:
 - Tasks: {len(tasks)}
 - Recent messages: {len(recent_messages)}
 
-**TASK:** This is your hourly reflection time to decide whether to proactively message this user or stay silent.
+**TASK:** This is your 4-hour reflection time to decide whether to proactively message this user or stay silent.
 
 **MANDATORY RESPONSE FORMAT:**
 1. **Silent reflection:** Use ONLY <strategize> tags
@@ -214,7 +214,7 @@ class HourlyReflectionScheduler:
 3. **NO text outside these tags!**
 
 **ANALYSIS REQUIRED:**
-Apply the comprehensive hourly reflection analysis framework from your system prompt to:
+Apply the comprehensive 4-hour reflection analysis framework from your system prompt to:
 - Review user communication patterns
 - Analyze goals & progress 
 - Check task & commitment status
@@ -266,7 +266,7 @@ Conduct your analysis now."""
         if not has_strategize:
             corrections.append("No strategize content found - AI didn't follow format")
             # Default to silent reflection with generic strategize content
-            corrected_strategize = "Conducted hourly reflection analysis but didn't provide strategic thinking in proper format."
+            corrected_strategize = "Conducted 4-hour reflection analysis but didn't provide strategic thinking in proper format."
             corrected_message = None
         else:
             corrected_strategize = original_strategize
@@ -283,7 +283,7 @@ Conduct your analysis now."""
             
         # Always log the decision for analysis
         action = "message_planned" if corrected_message else "silent_reflection"
-        logger.info(f"Hourly reflection decision for {user_email}: {action}")
+        logger.info(f"4-hour reflection decision for {user_email}: {action}")
         
         # Create corrected response
         corrected = CorrectedResponse(
@@ -350,7 +350,7 @@ Conduct your analysis now."""
                 parse_mode='Markdown'
             )
             
-            logger.info(f"Sent proactive hourly reflection message to {user_email}")
+            logger.info(f"Sent proactive 4-hour reflection message to {user_email}")
             
         except TelegramError as e:
             logger.error(f"Failed to send proactive message to {telegram_id}: {e}")
@@ -381,7 +381,7 @@ Conduct your analysis now."""
             logger.error(f"Error adding to chat history: {e}")
     
     def _log_reflection(self, state_manager: StateManager, reflection_data: Dict):
-        """Log hourly reflection data to user state"""
+        """Log 4-hour reflection data to user state"""
         try:
             state = state_manager.get_state()
             
@@ -392,7 +392,7 @@ Conduct your analysis now."""
             # Add new reflection
             state['hourly_reflections'].append(reflection_data)
             
-            # Keep only last 24 reflections (24 hours of history)
+            # Keep only last 24 reflections (4 days of history at 4-hour intervals)
             state['hourly_reflections'] = state['hourly_reflections'][-24:]
             
             # Save state
@@ -438,6 +438,6 @@ Conduct your analysis now."""
                 
         if telegram_id:
             await self._process_user_reflection(telegram_id, user_email)
-            logger.info(f"Manual hourly reflection completed for {user_email}")
+            logger.info(f"Manual 4-hour reflection completed for {user_email}")
         else:
             logger.warning(f"No telegram ID found for {user_email}")
