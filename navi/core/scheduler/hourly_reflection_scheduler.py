@@ -392,9 +392,6 @@ Conduct your analysis now."""
             # Add new reflection
             state['hourly_reflections'].append(reflection_data)
             
-            # Keep only last 24 reflections (4 days of history at 4-hour intervals)
-            state['hourly_reflections'] = state['hourly_reflections'][-24:]
-            
             # Save state
             state_manager.save_state()
             
