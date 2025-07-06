@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}NAVI - Progress Trackers{% endblock %}
+
+{% block content %}
+<div id="progress-trackers-container" class="scrollable-container">
+    <div class="loading">Loading progress trackers...</div>
+</div>
+
+<script>
+async function loadProgressTrackers() {
+    try {
+        document.getElementById('progress-trackers-container').innerHTML = '<div class="loading">Loading progress trackers...</div>';
+        
+        const data = typeof fetchData !== 'undefined' 
+            ? await fetchData('/api/progress-trackers')
+            : await fetch('/api/progress-trackers').then(r => r.json());
+        
+        let html = '';
+        
+        // Display task-specific trackers
+        if (data.task_trackers.length > 0) {
+            html += `
+                <div class="card">
+                    <h2 style="color: #2c3e50; margin-bottom: 1rem;">🎯 Task Progress Trackers</h2>
+                    <p style="color: #666; margin-bottom: 1.5rem;">Progress check-ins scheduled for specific tasks</p>
+            `;
+            
+            data.task_trackers.forEach(tracker => {
+                const statusColors = {
+                    'PENDING': '#3498db',
+                    'NOTIFIED': '#f39c12', 
+                    'COMPLETED': '#27ae60',
+                    'IN_PROGRESS': '#e67e22'
+                };
+                
+                const statusColor = statusColors[tracker.status] || '#95a5a6';
+                const isTaskMissing = tracker.task.status === 'MISSING';
+                
+                // Format check-in time
+                const checkInTime = tracker.check_in_time;
+                const checkInDate = new Date(checkInTime.replace(/(\d{2})\/(\d{2})\/(\d{2})/, '20$3-$2-$1'));
+                const now = new Date();
+                const isPast = checkInDate < now;
+                const timeDisplay = checkInTime + (isPast ? ' (Past)' : '');
+                
+                html += `
+                    <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid ${statusColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <span style="background: ${statusColor}; color: white; padding: 0.25rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">
+                                        ${tracker.status}
+                                    </span>
+                                    <span style="background: #6c757d; color: white; padding: 0.25rem 0.6rem; border-radius: 8px; font-size: 0.7rem;">
+                                        ID: ${tracker.tracker_id}
+                                    </span>
+                                </div>
+                                
+                                <h3 style="margin-bottom: 0.5rem; color: #2c3e50;">
+                                    ${isTaskMissing ? 
+                                        `❌ ${tracker.task.title}` : 
+                                        `<a href="/goals-tasks?task_id=${tracker.task_id}" style="color: #3498db; text-decoration: none;">📋 ${tracker.task.title}</a>`
+                                    }
+                                </h3>
+                                
+                                ${tracker.goal ? `
+                                    <p style="color: #666; margin-bottom: 0.5rem;">
+                                        <strong>📂 Goal:</strong> ${tracker.goal.title} (${tracker.goal.category})
+                                    </p>
+                                ` : ''}
+                                
+                                ${tracker.task.description && !isTaskMissing ? `
+                                    <p style="color: #333; margin-bottom: 0.5rem; font-size: 0.9rem;">
+                                        ${tracker.task.description}
+                                    </p>
+                                ` : ''}
+                                
+                                <p style="color: #666; font-size: 0.9rem;">
+                                    <strong>⏰ Check-in Time:</strong> ${timeDisplay}
+                                </p>
+                                
+                                ${!isTaskMissing ? `
+                                    <p style="color: #666; font-size: 0.9rem;">
+                                        <strong>📊 Task Status:</strong> ${tracker.task.status}
+                                    </p>
+                                ` : `
+                                    <p style="color: #e74c3c; font-size: 0.9rem; font-style: italic;">
+                                        ⚠️ This task no longer exists in the system
+                                    </p>
+                                `}
+                            </div>
+                        </div>
+                        
+                        ${!isTaskMissing ? `
+                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dee2e6;">
+                                <a href="/goals-tasks?task_id=${tracker.task_id}" 
+                                   class="btn" 
+                                   style="background: #3498db; text-decoration: none; display: inline-block;">
+                                    🔍 View Task Details
+                                </a>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+        }
+        
+        // Display general check-ins
+        if (data.general_checkins.length > 0) {
+            html += `
+                <div class="card">
+                    <h2 style="color: #2c3e50; margin-bottom: 1rem;">📅 General Check-ins</h2>
+                    <p style="color: #666; margin-bottom: 1.5rem;">Daily and weekly reviews not tied to specific tasks</p>
+            `;
+            
+            data.general_checkins.forEach(tracker => {
+                const statusColors = {
+                    'PENDING': '#3498db',
+                    'NOTIFIED': '#f39c12',
+                    'COMPLETED': '#27ae60',
+                    'IN_PROGRESS': '#e67e22'
+                };
+                
+                const statusColor = statusColors[tracker.status] || '#95a5a6';
+                
+                // Format check-in time
+                const checkInTime = tracker.check_in_time;
+                const checkInDate = new Date(checkInTime.replace(/(\d{2})\/(\d{2})\/(\d{2})/, '20$3-$2-$1'));
+                const now = new Date();
+                const isPast = checkInDate < now;
+                const timeDisplay = checkInTime + (isPast ? ' (Past)' : '');
+                
+                // Determine check-in type based on time patterns
+                const isDaily = checkInTime.includes('18:00'); // Assuming 6 PM is daily check-in
+                const checkInType = isDaily ? 'Daily Review' : 'Weekly Review';
+                const checkInIcon = isDaily ? '📋' : '📊';
+                
+                html += `
+                    <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid ${statusColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <span style="background: ${statusColor}; color: white; padding: 0.25rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">
+                                        ${tracker.status}
+                                    </span>
+                                    <span style="background: #6c757d; color: white; padding: 0.25rem 0.6rem; border-radius: 8px; font-size: 0.7rem;">
+                                        ID: ${tracker.tracker_id}
+                                    </span>
+                                </div>
+                                
+                                <h3 style="margin-bottom: 0.5rem; color: #2c3e50;">
+                                    ${checkInIcon} ${checkInType}
+                                </h3>
+                                
+                                <p style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                                    ${isDaily ? 
+                                        'Daily progress review and planning session' : 
+                                        'Weekly reflection and goal assessment'
+                                    }
+                                </p>
+                                
+                                <p style="color: #666; font-size: 0.9rem;">
+                                    <strong>⏰ Check-in Time:</strong> ${timeDisplay}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+        }
+        
+        // Show empty state if no trackers
+        if (data.task_trackers.length === 0 && data.general_checkins.length === 0) {
+            html = `
+                <div class="card" style="text-align: center; padding: 3rem;">
+                    <h2 style="color: #95a5a6; margin-bottom: 1rem;">📊 No Progress Trackers</h2>
+                    <p style="color: #666; margin-bottom: 1.5rem;">
+                        You don't have any progress trackers set up yet. 
+                        Progress trackers help you stay on top of your goals by sending regular check-in reminders.
+                    </p>
+                    <p style="color: #666;">
+                        💡 <strong>Tip:</strong> Progress trackers are automatically created when you set up tasks, 
+                        or you can ask NAVI to schedule check-ins for your goals.
+                    </p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('progress-trackers-container').innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading progress trackers:', error);
+        document.getElementById('progress-trackers-container').innerHTML = 
+            '<div class="error">Failed to load progress trackers: ' + error.message + '</div>';
+    }
+}
+
+// Load progress trackers when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadProgressTrackers();
+});
+</script>
+
+<style>
+/* Additional styles for progress trackers */
+.tracker-link {
+    transition: all 0.2s ease;
+}
+
+.tracker-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Status badge animations */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.status-pending {
+    animation: pulse 2s infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .tracker-card {
+        padding: 1rem;
+    }
+    
+    .tracker-header {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+</style>
+{% endblock %}

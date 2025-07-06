@@ -1,0 +1,147 @@
+# NAVI Project .gitignore
+
+# Credentials and Secrets - NEVER COMMIT THESE!
+.env
+.env.*
+!.env.example
+credentials.json
+credentials_desktop.json
+**/token.json
+**/service_account*.json
+**/*api*key*
+**/*secret*
+**/*token*
+**/*credential*
+!**/requirements*.txt
+!**/*.md
+
+# User Data and State Files
+users/
+telegram_auth_codes.json
+telegram_mappings.json
+state.json
+**/state.json
+
+# Log Files
+*.log
+logs/
+auth.log
+web_server.log
+web_ui.log
+telegram_bot.log
+telegram_errors.log
+navi_errors.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+navi_venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Testing
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Deprecated Code (old structure)
+deprecated/
+
+# Temporary Files
+*.tmp
+*.temp
+.cache/
+temp/
+
+# Docker
+.dockerignore
+
+# Local Development
+.local/
+*.local
+
+# Cloud and Deployment
+.gcloud/
+*.tar.gz
+
+# Data Files (if any sensitive data)
+data/auth/
+data/users/
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup Files
+*.bak
+*.backup
+*~
+
+# SSH Keys
+*.pem
+*.key
+id_rsa*
+*.ssh/
+
+# Configuration that might contain secrets
+config.ini
+config.cfg
+settings.ini
+
+# Package Lock Files (include requirements.txt but not lock files)
+Pipfile.lock
+poetry.lock
+
+# Runtime Files
+*.pid
+.pidfile

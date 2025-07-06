@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}NAVI - Profile{% endblock %}
+
+{% block content %}
+<div class="scrollable-container">
+    <div class="card">
+        <h2>👤 User Profile</h2>
+        <div id="user-info">Loading user information...</div>
+    </div>
+</div>
+
+<script>
+async function loadUserInfo() {
+    try {
+        // Use fetchData if available, otherwise use fetch directly
+        const userData = typeof fetchData !== 'undefined' 
+            ? await fetchData('/api/user')
+            : await fetch('/api/user').then(r => r.json());
+            
+        document.getElementById('user-info').innerHTML = `
+            <div style="display: grid; gap: 1rem; margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                    <strong>Email:</strong>
+                    <span>${userData.email}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                    <strong>Name:</strong>
+                    <span>${userData.details.name || 'Not set'}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                    <strong>Age:</strong>
+                    <span>${userData.details.age || 'Not set'}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                    <strong>Job:</strong>
+                    <span>${userData.details.job || 'Not set'}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f8f9fa; border-radius: 6px;">
+                    <strong>Conversation Stage:</strong>
+                    <span>${userData.conversation_stage}</span>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error loading user info:', error);
+        document.getElementById('user-info').innerHTML = '<div class="error">Failed to load user information: ' + error.message + '</div>';
+    }
+}
+
+// Load user info when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserInfo();
+});
+</script>
+{% endblock %}

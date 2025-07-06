@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAVI - OAuth Setup Required</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: white;
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .setup-container {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            border: 1px solid #e1e8ed;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .logo {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+            text-align: center;
+        }
+
+        .alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            color: #856404;
+        }
+
+        .alert strong {
+            color: #856404;
+        }
+
+        .steps {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .steps h3 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+        }
+
+        .step {
+            margin-bottom: 1.5rem;
+            padding-left: 2rem;
+            position: relative;
+        }
+
+        .step-number {
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #3498db;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .step h4 {
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .step p {
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .code {
+            background: #f1f2f6;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+        }
+
+        .link {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .link:hover {
+            text-decoration: underline;
+        }
+
+        .back-btn {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.2s;
+        }
+
+        .back-btn:hover {
+            background: #7f8c8d;
+        }
+
+        .important {
+            background: #e8f5e8;
+            border-left: 4px solid #27ae60;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="logo">🔧</div>
+        <h1>OAuth Setup Required</h1>
+        
+        <div class="alert">
+            <strong>Setup needed:</strong> The Google OAuth credentials file is missing. You need to set up OAuth credentials to use NAVI's web interface.
+        </div>
+        
+        <div class="steps">
+            <h3>Follow these steps to set up OAuth:</h3>
+            
+            <div class="step">
+                <div class="step-number">1</div>
+                <h4>Go to Google Cloud Console</h4>
+                <p>Visit the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="link">Google Cloud Console Credentials page</a></p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">2</div>
+                <h4>Create OAuth 2.0 Client ID</h4>
+                <p>Click "Create Credentials" → "OAuth 2.0 Client ID"</p>
+                <p>Choose "Web application" as the application type</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">3</div>
+                <h4>Configure Redirect URIs</h4>
+                <p>Add these authorized redirect URIs:</p>
+                <div class="code">http://localhost:4999/auth/callback</div>
+                <div class="code">http://127.0.0.1:4999/auth/callback</div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">4</div>
+                <h4>Download credentials.json</h4>
+                <p>Download the JSON file and save it as:</p>
+                <div class="code">../credentials.json</div>
+                <p>(One directory up from the src folder)</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">5</div>
+                <h4>Restart the server</h4>
+                <p>Stop and restart the NAVI web server for the changes to take effect</p>
+            </div>
+        </div>
+        
+        <div class="important">
+            <strong>Important:</strong> Make sure the credentials.json file is in the correct location and contains valid OAuth 2.0 credentials. The web application redirect URIs must match exactly.
+        </div>
+        
+        <a href="{{ url_for('login') }}" class="back-btn">← Back to Login</a>
+    </div>
+</body>
+</html>

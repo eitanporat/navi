@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}NAVI - API Calls{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <span id="pagination-info">Showing 1-10 of 0</span>
+        </div>
+        <div id="pagination-controls">
+            <button id="prev-page" class="btn btn-small" disabled>← Previous</button>
+            <span id="page-numbers" style="margin: 0 1rem;"></span>
+            <button id="next-page" class="btn btn-small" disabled>Next →</button>
+        </div>
+    </div>
+</div>
+
+<div id="api-calls-list" class="scrollable-container">
+    <div class="loading">Loading API calls...</div>
+</div>
+
+<script>
+let currentPage = 1;
+const itemsPerPage = 10;
+let allApiCalls = [];
+
+async function loadApiCalls() {
+    try {
+        // Show loading state manually if showLoading is not available
+        document.getElementById('api-calls-list').innerHTML = '<div class="loading">Loading API calls...</div>';
+        // Use fetchData if available, otherwise use fetch directly
+        allApiCalls = typeof fetchData !== 'undefined' 
+            ? await fetchData('/api/api-calls')
+            : await fetch('/api/api-calls').then(r => r.json());
+        
+        renderPage();
+    } catch (error) {
+        console.error('Error loading API calls:', error);
+        document.getElementById('api-calls-list').innerHTML = '<div class="error">Failed to load API calls: ' + error.message + '</div>';
+    }
+}
+
+function renderPage() {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const pageApiCalls = allApiCalls.slice(startIndex, endIndex);
+        
+        if (allApiCalls.length === 0) {
+            document.getElementById('api-calls-list').innerHTML = 
+                '<div style="padding: 2rem; text-align: center; color: #666;">No API calls found.</div>';
+            updatePagination();
+            return;
+        }
+        
+        if (pageApiCalls.length === 0) {
+            document.getElementById('api-calls-list').innerHTML = 
+                '<div style="padding: 2rem; text-align: center; color: #666;">No API calls on this page.</div>';
+            updatePagination();
+            return;
+        }
+        
+        let html = '';
+        pageApiCalls.forEach((call, index) => {
+            // Handle both old and new timestamp formats
+            let timestamp;
+            try {
+                // Try parsing as-is first (works for ISO format)
+                const date = new Date(call.timestamp);
+                if (isNaN(date.getTime())) {
+                    // If that fails, try converting old format "2025-07-06 05:40:50 UTC" to ISO
+                    const oldFormatMatch = call.timestamp.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) UTC$/);
+                    if (oldFormatMatch) {
+                        timestamp = new Date(oldFormatMatch[1] + 'Z').toLocaleString();
+                    } else {
+                        timestamp = call.timestamp; // Fallback to raw string
+                    }
+                } else {
+                    timestamp = date.toLocaleString();
+                }
+            } catch (e) {
+                timestamp = call.timestamp; // Fallback to raw string
+            }
+            
+            if (call.type === 'function_call') {
+                // Handle legacy function calls - smaller, compact design
+                const argsJson = JSON.stringify(call.args, null, 2);
+                
+                // Color code by function type
+                let color = '#3498db';
+                if (call.name.includes('goal')) color = '#e74c3c';
+                else if (call.name.includes('task')) color = '#f39c12';
+                else if (call.name.includes('event')) color = '#9b59b6';
+                else if (call.name.includes('user')) color = '#27ae60';
+                
+                html += `
+                    <div style="border-left: 4px solid ${color}; background: white; margin-bottom: 0.75rem; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="color: ${color}; font-size: 1.2rem;">🔧</span>
+                                <strong style="color: ${color}; font-size: 0.95rem;">${call.name}</strong>
+                                <span style="background: #ecf0f1; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; color: #555;">LEGACY</span>
+                            </div>
+                            <small style="color: #666; font-size: 0.85rem;">${timestamp}</small>
+                        </div>
+                        
+                        <details style="margin-top: 0.5rem;">
+                            <summary style="cursor: pointer; color: #666; font-size: 0.9rem;">View Arguments</summary>
+                            <pre style="margin: 0.5rem 0; overflow-x: auto; font-size: 0.8rem; background: #f8f9fa; padding: 0.75rem; border-radius: 4px; white-space: pre-wrap;">${argsJson}</pre>
+                        </details>
+                    </div>
+                `;
+            } else if (call.type === 'tool_execution') {
+                // Handle tool executions with results - enhanced design
+                const argsJson = JSON.stringify(call.args, null, 2);
+                const resultText = call.result || 'No result';
+                
+                // Color code by function type
+                let color = '#2ecc71';
+                if (call.name.includes('goal')) color = '#e74c3c';
+                else if (call.name.includes('task')) color = '#f39c12';
+                else if (call.name.includes('event')) color = '#9b59b6';
+                else if (call.name.includes('user')) color = '#27ae60';
+                
+                html += `
+                    <div style="border-left: 4px solid ${color}; background: white; margin-bottom: 0.75rem; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="color: ${color}; font-size: 1.2rem;">⚙️</span>
+                                <strong style="color: ${color}; font-size: 0.95rem;">${call.name}</strong>
+                                <span style="background: #d5f4e6; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; color: #27ae60;">EXECUTED</span>
+                            </div>
+                            <small style="color: #666; font-size: 0.85rem;">${timestamp}</small>
+                        </div>
+                        
+                        <details style="margin-top: 0.5rem;">
+                            <summary style="cursor: pointer; color: #666; font-size: 0.9rem;">View Arguments</summary>
+                            <pre style="margin: 0.5rem 0; overflow-x: auto; font-size: 0.8rem; background: #f8f9fa; padding: 0.75rem; border-radius: 4px; white-space: pre-wrap;">${argsJson}</pre>
+                        </details>
+                        
+                        <details style="margin-top: 0.5rem;">
+                            <summary style="cursor: pointer; color: #27ae60; font-size: 0.9rem; font-weight: bold;">View Result</summary>
+                            <pre style="margin: 0.5rem 0; overflow-x: auto; font-size: 0.8rem; background: #d5f4e6; padding: 0.75rem; border-radius: 4px; white-space: pre-wrap; border: 1px solid #a8e6cf;">${resultText}</pre>
+                        </details>
+                    </div>
+                `;
+            } else if (call.type === 'gemini_api_call') {
+                // Handle Gemini API calls - enhanced design
+                const color = '#8e44ad'; // Purple for AI calls
+                const inputPreview = call.input_preview || 'No input';
+                const responsePreview = call.response_preview || 'No response';
+                
+                html += `
+                    <div style="border-left: 4px solid ${color}; background: white; margin-bottom: 0.75rem; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="color: ${color}; font-size: 1.2rem;">🤖</span>
+                                <strong style="color: ${color}; font-size: 0.95rem;">${call.name}</strong>
+                                <span style="background: #e8d8f5; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; color: #8e44ad;">GEMINI</span>
+                            </div>
+                            <small style="color: #666; font-size: 0.85rem;">${timestamp}</small>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; font-size: 0.85rem; background: #f8f9fa; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.75rem;">
+                            <div><strong>Tokens In:</strong> ${call.tokens_in || 0}</div>
+                            <div><strong>Tokens Out:</strong> ${call.tokens_out || 0}</div>
+                            <div><strong>Response Time:</strong> ${call.response_time_ms || 0}ms</div>
+                        </div>
+                        
+                        <details style="margin-top: 0.5rem;">
+                            <summary style="cursor: pointer; color: #666; font-size: 0.9rem;">View Input Preview</summary>
+                            <pre style="margin: 0.5rem 0; overflow-x: auto; font-size: 0.8rem; background: #fff3cd; padding: 0.75rem; border-radius: 4px; white-space: pre-wrap; border: 1px solid #ffeaa7;">${inputPreview}</pre>
+                        </details>
+                        
+                        <details style="margin-top: 0.5rem;">
+                            <summary style="cursor: pointer; color: #8e44ad; font-size: 0.9rem; font-weight: bold;">View Response Preview</summary>
+                            <pre style="margin: 0.5rem 0; overflow-x: auto; font-size: 0.8rem; background: #e8d8f5; padding: 0.75rem; border-radius: 4px; white-space: pre-wrap; border: 1px solid #d1a3e0;">${responsePreview}</pre>
+                        </details>
+                    </div>
+                `;
+            }
+        });
+        
+        document.getElementById('api-calls-list').innerHTML = html;
+        updatePagination();
+}
+
+function updatePagination() {
+    const totalItems = allApiCalls.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+    const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+    
+    // Update info
+    document.getElementById('pagination-info').textContent = 
+        `Showing ${startItem}-${endItem} of ${totalItems}`;
+    
+    // Update buttons
+    document.getElementById('prev-page').disabled = currentPage === 1;
+    document.getElementById('next-page').disabled = currentPage === totalPages || totalPages === 0;
+    
+    // Update page numbers
+    let pageNumbers = '';
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        pageNumbers += `<button class="btn btn-small ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})" style="margin: 0 2px; ${i === currentPage ? 'background: #2980b9;' : ''}">${i}</button>`;
+    }
+    
+    document.getElementById('page-numbers').innerHTML = pageNumbers;
+}
+
+function goToPage(page) {
+    currentPage = page;
+    renderPage();
+}
+
+function nextPage() {
+    const totalPages = Math.ceil(allApiCalls.length / itemsPerPage);
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderPage();
+    }
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        renderPage();
+    }
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('next-page').addEventListener('click', nextPage);
+    document.getElementById('prev-page').addEventListener('click', prevPage);
+    loadApiCalls();
+});
+</script>
+
+<style>
+pre {
+    background: #f8f9fa;
+    padding: 0.5rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}

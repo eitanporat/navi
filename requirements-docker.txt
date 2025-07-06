@@ -1,0 +1,27 @@
+# Essential NAVI Dependencies for Docker Deployment
+
+# Core framework - let Flask choose compatible versions
+flask
+werkzeug
+
+# Google services
+google-generativeai
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+
+# Telegram bot
+python-telegram-bot
+
+# Environment and configuration
+python-dotenv
+
+# Date/time handling
+python-dateutil
+
+# HTTP requests
+requests
+
+# Rich text formatting
+rich

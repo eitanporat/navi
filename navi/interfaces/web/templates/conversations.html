@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}NAVI - Conversations{% endblock %}
+
+{% block content %}
+<div id="conversations-list" class="scrollable-container">
+    <div class="loading">Loading conversations...</div>
+</div>
+
+<script>
+async function loadConversations() {
+    try {
+        // Show loading state manually if showLoading is not available
+        document.getElementById('conversations-list').innerHTML = '<div class="loading">Loading conversations...</div>';
+        // Use fetchData if available, otherwise use fetch directly
+        const allItems = typeof fetchData !== 'undefined' 
+            ? await fetchData('/api/conversations')
+            : await fetch('/api/conversations').then(r => r.json());
+        
+        if (allItems.length === 0) {
+            document.getElementById('conversations-list').innerHTML = 
+                '<div class="card">No conversations found.</div>';
+            return;
+        }
+        
+        // Items are already sorted chronologically by the API
+        let html = '';
+        allItems.forEach((item, index) => {
+            if (item.type === 'message') {
+                const isUser = item.role === 'user';
+                const roleIcon = isUser ? '👤' : '🤖';
+                const roleName = isUser ? 'You' : 'NAVI';
+                const bgColor = isUser ? '#e3f2fd' : '#f8f9fa';
+                
+                // Extract actual message content (remove context wrapper if present)
+                let content = item.content;
+                if (content.includes('# USER MESSAGE')) {
+                    const match = content.match(/# USER MESSAGE\n(.*?)\n---/s);
+                    if (match) content = match[1];
+                }
+                
+                // For NAVI messages, extract and display both strategize and message sections
+                if (!isUser) {
+                    const strategizeMatch = content.match(/<strategize>(.*?)<\/strategize>/s);
+                    const messageMatch = content.match(/<message>(.*?)<\/message>/s);
+                    
+                    if (strategizeMatch || messageMatch) {
+                        let formattedContent = '';
+                        
+                        // Add strategize section if present
+                        if (strategizeMatch) {
+                            formattedContent += `<div style="background: #f0f8ff; border-left: 4px solid #2196f3; padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 1.2rem;">🧠</span>
+                                    <strong style="color: #2196f3; font-size: 0.9rem;">STRATEGIC THINKING</strong>
+                                </div>
+                                <div style="font-style: italic; color: #333; white-space: pre-wrap;">${strategizeMatch[1].trim()}</div>
+                            </div>`;
+                        }
+                        
+                        // Add message section if present
+                        if (messageMatch) {
+                            formattedContent += `<div style="white-space: pre-wrap; word-wrap: break-word;">${messageMatch[1].trim()}</div>`;
+                        }
+                        
+                        content = formattedContent;
+                    } else {
+                        // If no structured tags found, strip all XML tags
+                        content = content.replace(/<[^>]*>/g, '').trim();
+                    }
+                }
+                
+                // Both user and NAVI messages - simple layout
+                html += `
+                    <div class="card" style="background: ${bgColor}; margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                            <strong>${roleIcon} ${roleName}</strong>
+                            <small style="color: #666;">${item.formatted_timestamp}</small>
+                        </div>
+                        <div style="word-wrap: break-word;">${content.trim()}</div>
+                    </div>
+                `;
+            } else if (item.type === 'tool_call') {
+                // Tool call display
+                html += `
+                    <div class="card" style="background: #fafafa; border-left: 4px solid #9c27b0; margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="background: #9c27b0; color: white; padding: 0.25rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">
+                                    🔧 TOOL CALL
+                                </span>
+                                <strong style="color: #9c27b0;">${item.tool_name}</strong>
+                            </div>
+                            <small style="color: #666;">${item.formatted_timestamp}</small>
+                        </div>
+                        
+                        <!-- Arguments section -->
+                        <div style="margin-bottom: 0.75rem;">
+                            <div style="margin-bottom: 0.5rem;">
+                                <span style="background: #673ab7; color: white; padding: 0.2rem 0.5rem; border-radius: 8px; font-size: 0.7rem; font-weight: bold;">
+                                    📥 ARGUMENTS
+                                </span>
+                            </div>
+                            <div style="background: #f3e5f5; border-left: 3px solid #9c27b0; padding: 0.75rem; border-radius: 4px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 0.85rem;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${JSON.stringify(item.args, null, 2)}</pre>
+                            </div>
+                        </div>
+                        
+                        <!-- Result section -->
+                        <div>
+                            <div style="margin-bottom: 0.5rem;">
+                                <span style="background: #4caf50; color: white; padding: 0.2rem 0.5rem; border-radius: 8px; font-size: 0.7rem; font-weight: bold;">
+                                    📤 RESULT
+                                </span>
+                            </div>
+                            <div style="background: #e8f5e8; border-left: 3px solid #4caf50; padding: 0.75rem; border-radius: 4px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 0.85rem;">
+                                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${item.result}</pre>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        document.getElementById('conversations-list').innerHTML = html;
+        
+        // Scroll to bottom (newest conversation)
+        const conversationsList = document.getElementById('conversations-list');
+        conversationsList.scrollTop = conversationsList.scrollHeight;
+        
+    } catch (error) {
+        console.error('Error loading conversations:', error);
+        // Show error manually if showError is not available
+        document.getElementById('conversations-list').innerHTML = '<div class="error">Failed to load conversations: ' + error.message + '</div>';
+    }
+}
+
+// Load conversations when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadConversations();
+});
+</script>
+
+<style>
+.message-user {
+    background: #e3f2fd;
+}
+
+.message-navi {
+    background: #d5dbdb;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}NAVI - Goals & Tasks{% endblock %}
+
+{% block content %}
+<div id="goals-tasks-container" class="scrollable-container">
+    <div class="loading">Loading goals and tasks...</div>
+</div>
+
+<script>
+async function loadGoalsTasks() {
+    try {
+        // Show loading state manually if showLoading is not available
+        document.getElementById('goals-tasks-container').innerHTML = '<div class="loading">Loading goals and tasks...</div>';
+        console.log('Loading goals and tasks...');
+        // Use fetchData if available, otherwise use fetch directly
+        const data = typeof fetchData !== 'undefined' 
+            ? await fetchData('/api/goals-tasks')
+            : await fetch('/api/goals-tasks').then(r => r.json());
+        console.log('Data received:', data);
+        
+        let html = '';
+        
+        // Display goals with their tasks
+        if (data.goals.length === 0) {
+            html += '<div class="card">No goals found. Start by creating your first goal!</div>';
+        } else {
+            data.goals.forEach((goalGroup, index) => {
+                const goal = goalGroup.goal;
+                const tasks = goalGroup.tasks;
+                
+                // Goal status indicators
+                const importanceColor = {
+                    'HIGH': '#e74c3c',
+                    'MEDIUM': '#f39c12',
+                    'LOW': '#27ae60'
+                }[goal.importance] || '#3498db';
+                
+                const dueDate = goal.due_date; // Use the date as-is since it's already formatted
+                
+                html += `
+                    <div class="card" style="border-left: 4px solid ${importanceColor};">
+                        <div style="display: flex; justify-content: between; align-items: flex-start; margin-bottom: 1rem;">
+                            <div style="flex: 1;">
+                                <h2 style="color: ${importanceColor}; margin-bottom: 0.5rem;">${goal.status_emoji} ${goal.title} (#${goal.goal_id})</h2>
+                                <p style="color: #666; margin-bottom: 0.5rem;"><strong>📂 Category:</strong> ${goal.category} | <strong>⭐ Importance:</strong> ${goal.importance}</p>
+                                <p style="margin-bottom: 0.5rem;">📋 ${goal.description}</p>
+                                <p style="color: #666; font-size: 0.9rem;"><strong>🎯 Success:</strong> ${goal.end_condition}</p>
+                                <p style="color: #666; font-size: 0.9rem;"><strong>📅 Due:</strong> ${dueDate}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Progress Bars Section -->
+                        <div style="margin: 1rem 0; padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+                            <div style="margin-bottom: 1.5rem;">
+                                <p style="margin-bottom: 0.5rem; font-weight: bold; color: #2c3e50;">🤖 <strong>Bot Assessment: ${goal.bot_assessment}%</strong> (based on completed tasks)</p>
+                                <div style="background: #e9ecef; border-radius: 12px; height: 20px; overflow: hidden; position: relative;">
+                                    <div style="background: linear-gradient(90deg, #27ae60, #2ecc71); height: 100%; width: ${goal.bot_assessment}%; border-radius: 12px; transition: width 0.3s ease;"></div>
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.8rem; font-weight: bold; color: #2c3e50;">${goal.bot_assessment}%</span>
+                                </div>
+                            </div>
+                            
+                            ${goal.user_assessment > 0 ? `
+                                <div style="margin-bottom: 1.5rem;">
+                                    <p style="margin-bottom: 0.5rem; font-weight: bold; color: #2c3e50;">👤 <strong>Your Assessment: ${goal.user_assessment}%</strong> (self-reported)</p>
+                                    <div style="background: #e9ecef; border-radius: 12px; height: 20px; overflow: hidden; position: relative;">
+                                        <div style="background: linear-gradient(90deg, #3498db, #5dade2); height: 100%; width: ${goal.user_assessment}%; border-radius: 12px; transition: width 0.3s ease;"></div>
+                                        <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.8rem; font-weight: bold; color: #2c3e50;">${goal.user_assessment}%</span>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div style="margin-bottom: 1.5rem;">
+                                    <p style="margin-bottom: 0.5rem; font-weight: bold; color: #2c3e50;">👤 <strong>Your Assessment:</strong> Not set (ask during next check-in)</p>
+                                    <div style="background: #e9ecef; border-radius: 12px; height: 20px; overflow: hidden; position: relative;">
+                                        <div style="background: #bdc3c7; height: 100%; width: 0%; border-radius: 12px;"></div>
+                                        <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.8rem; font-weight: bold; color: #7f8c8d;">Not Set</span>
+                                    </div>
+                                </div>
+                            `}
+                            
+                            <p style="margin-bottom: 0.5rem;"><strong>📝 Tasks:</strong> ${goal.total_tasks} total | ✅ ${goal.completed_count} completed | ⏳ ${goal.pending_count} pending</p>
+                            
+                            ${goal.goal_log && goal.goal_log.length > 0 ? `
+                                <div style="margin-top: 1rem;">
+                                    <p style="margin-bottom: 0.5rem; font-weight: bold;">📈 <strong>Recent Progress:</strong></p>
+                                    ${goal.goal_log.map(entry => `<p style="margin-left: 1rem; font-size: 0.9rem; color: #666;">• ${entry}</p>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <h3 style="margin: 1rem 0 0.5rem 0; color: #333;">Tasks (${tasks.length})</h3>
+                        <div id="tasks-${goal.goal_id}">
+                `;
+                
+                if (tasks.length === 0) {
+                    html += '<p style="color: #666; font-style: italic;">No tasks created yet for this goal.</p>';
+                } else {
+                    tasks.forEach(task => {
+                        const statusColor = {
+                            'COMPLETED': '#27ae60',
+                            'IN_PROGRESS': '#f39c12',
+                            'PENDING': '#3498db',
+                            'CANCELLED': '#95a5a6'
+                        }[task.status] || '#3498db';
+                        
+                        const startTime = task.start_time ? new Date(task.start_time).toLocaleString() : 'Not scheduled';
+                        const endTime = task.end_time ? new Date(task.end_time).toLocaleString() : 'Not set';
+                        
+                        const taskTitle = task.title || task.description || 'Untitled Task';
+                        const taskDescription = task.title ? (task.description || 'No description provided') : '';
+                        
+                        html += `
+                            <div id="task-${task.task_id}" style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-bottom: 0.5rem; border-left: 3px solid ${statusColor};">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                    <div style="flex: 1;">
+                                        <h4 style="margin-bottom: 0.5rem;">${taskTitle}</h4>
+                                        ${taskDescription ? `<p style="font-size: 0.9rem; color: #333; margin-bottom: 0.5rem; white-space: pre-line;">${taskDescription}</p>` : ''}
+                                        <p style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;"><strong>Success Measure:</strong> ${task.measure_of_success}</p>
+                                        <p style="font-size: 0.9rem; color: #666;">
+                                            <strong>📅 Start:</strong> ${startTime}<br>
+                                            <strong>⏰ End:</strong> ${endTime}
+                                        </p>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <span class="btn btn-small" style="background: ${statusColor};">${task.status}</span>
+                                        <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #666;">ID: ${task.task_id}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                html += '</div></div>';
+            });
+        }
+        
+        // Display orphan tasks (tasks without goals)
+        if (data.orphan_tasks.length > 0) {
+            html += `
+                <div class="card" style="border-left: 4px solid #95a5a6;">
+                    <h2 style="color: #95a5a6;">🔗 Tasks without Goals</h2>
+                    <p style="color: #666; margin-bottom: 1rem;">These tasks are not associated with any goal:</p>
+            `;
+            
+            data.orphan_tasks.forEach(task => {
+                const statusColor = {
+                    'COMPLETED': '#27ae60',
+                    'IN_PROGRESS': '#f39c12',
+                    'PENDING': '#3498db',
+                    'CANCELLED': '#95a5a6'
+                }[task.status] || '#3498db';
+                
+                const startTime = task.start_time ? new Date(task.start_time).toLocaleString() : 'Not scheduled';
+                
+                const taskTitle = task.title || task.description || 'Untitled Task';
+                const taskDescription = task.title ? (task.description || 'No description provided') : '';
+                
+                html += `
+                    <div id="task-${task.task_id}" style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-bottom: 0.5rem; border-left: 3px solid ${statusColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <h4 style="margin-bottom: 0.5rem;">${taskTitle}</h4>
+                                ${taskDescription ? `<p style="font-size: 0.9rem; color: #333; margin-bottom: 0.5rem; white-space: pre-line;">${taskDescription}</p>` : ''}
+                                <p style="font-size: 0.9rem; color: #666;">📅 ${startTime}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <span class="btn btn-small" style="background: ${statusColor};">${task.status}</span>
+                                <p style="margin-top: 0.5rem; font-size: 0.8rem; color: #666;">ID: ${task.task_id}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+        }
+        
+        document.getElementById('goals-tasks-container').innerHTML = html;
+        console.log('Goals and tasks loaded successfully');
+        
+    } catch (error) {
+        console.error('Error loading goals and tasks:', error);
+        // Show error manually if showError is not available
+        document.getElementById('goals-tasks-container').innerHTML = '<div class="error">Failed to load goals and tasks: ' + error.message + '</div>';
+    }
+}
+
+// Function to get URL parameters
+function getUrlParameter(name) {
+    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+    var results = regex.exec(location.search);
+    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+}
+
+// Function to highlight a specific task
+function highlightTask(taskId) {
+    if (!taskId) return;
+    
+    // Wait a bit for the DOM to be fully rendered
+    setTimeout(() => {
+        // Find the task element by its ID
+        const targetElement = document.getElementById(`task-${taskId}`);
+        
+        if (targetElement) {
+            // Add highlighting class
+            targetElement.style.backgroundColor = '#fff3cd';
+            targetElement.style.border = '2px solid #ffc107';
+            targetElement.style.borderRadius = '8px';
+            targetElement.style.transition = 'all 0.3s ease';
+            targetElement.style.boxShadow = '0 0 20px rgba(255, 193, 7, 0.3)';
+            
+            // Scroll to the highlighted task
+            targetElement.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+            
+            // Add a pulse animation
+            let pulseCount = 0;
+            const pulseInterval = setInterval(() => {
+                if (pulseCount >= 3) {
+                    clearInterval(pulseInterval);
+                    return;
+                }
+                
+                targetElement.style.transform = 'scale(1.03)';
+                setTimeout(() => {
+                    targetElement.style.transform = 'scale(1)';
+                }, 300);
+                
+                pulseCount++;
+            }, 400);
+            
+            // Show a notification
+            const notification = document.createElement('div');
+            notification.innerHTML = `
+                <div style="position: fixed; top: 80px; right: 20px; background: #fff3cd; color: #856404; 
+                            padding: 1rem; border-radius: 8px; border: 1px solid #ffc107; z-index: 1000;
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 300px;">
+                    🎯 <strong>Task Highlighted!</strong><br>
+                    Task #${taskId} is highlighted below
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            style="float: right; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #856404;">×</button>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            
+            // Auto-remove notification after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+    }, 500);
+}
+
+// Load goals and tasks when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadGoalsTasks();
+    
+    // Check for task_id parameter and highlight if present
+    const taskId = getUrlParameter('task_id');
+    if (taskId) {
+        // Wait for content to load, then highlight
+        setTimeout(() => {
+            highlightTask(taskId);
+        }, 300);
+    }
+});
+</script>
+{% endblock %}

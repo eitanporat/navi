@@ -1,0 +1,511 @@
+{% extends "base.html" %}
+
+{% block title %}NAVI - Calendar{% endblock %}
+
+{% block content %}
+<div class="card">
+    <!-- Header with navigation and stats -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <button id="prev-week" class="btn">← Previous Week</button>
+        <h2 id="calendar-title" style="margin: 0;">Loading...</h2>
+        <button id="next-week" class="btn">Next Week →</button>
+    </div>
+    
+    <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem;">
+        <div style="text-align: center;">
+            <div style="font-size: 1.2rem; font-weight: bold; color: #2196f3;" id="events-count">0</div>
+            <div style="font-size: 0.9rem; color: #666;">Calendar Events</div>
+        </div>
+    </div>
+
+    <!-- Dynamic calendar grid -->
+    <div id="calendar-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #ddd; width: 100%;">
+        <div class="loading">Loading calendar...</div>
+    </div>
+</div>
+
+<!-- Event Detail Modal -->
+<div id="event-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">Event Details</h3>
+            <button id="close-modal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="modal-content-body">
+                <!-- Event details will be populated here -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <a id="open-in-google" href="#" target="_blank" class="btn" style="background: #4285f4;">Open in Google Calendar</a>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentDate = new Date();
+let calendarData = [];
+
+async function loadCalendarData() {
+    try {
+        const response = await fetch('/api/calendar');
+        
+        // Check if we got redirected to login (authentication required)
+        if (response.url.includes('/login')) {
+            document.getElementById('calendar-grid').innerHTML = 
+                '<div class="error">Please <a href="/login">login</a> to view your calendar.</div>';
+            return;
+        }
+        
+        // Check if response is OK
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        console.log('DEBUG: Calendar API response:', data);
+        console.log('DEBUG: Calendar items:', data.items);
+        console.log('DEBUG: Events count:', data.events_count);
+        console.log('DEBUG: Backend debug info:', data.debug);
+        
+        calendarData = data.items || [];
+        
+        // Update counter (only events now)
+        document.getElementById('events-count').textContent = data.events_count || 0;
+        
+        renderCalendar();
+    } catch (error) {
+        console.error('Error loading calendar:', error);
+        if (error.message.includes('Unexpected token')) {
+            document.getElementById('calendar-grid').innerHTML = 
+                '<div class="error">Authentication required. Please <a href="/login">login</a> first.</div>';
+        } else {
+            document.getElementById('calendar-grid').innerHTML = 
+                '<div class="error">Failed to load calendar data: ' + error.message + '</div>';
+        }
+    }
+}
+
+function renderCalendar() {
+    console.log('DEBUG: renderCalendar called with calendarData:', calendarData);
+    
+    // Calculate available screen space and determine optimal number of weeks
+    const availableHeight = window.innerHeight - 300; // Reserve space for header, nav, and padding
+    const cellHeight = window.innerWidth < 480 ? 100 : (window.innerWidth < 768 ? 120 : 150);
+    const headerHeight = 40;
+    const maxWeeks = Math.floor((availableHeight - headerHeight) / cellHeight);
+    const weeksToShow = Math.max(2, Math.min(maxWeeks, 6)); // Between 2-6 weeks
+    
+    // Calculate period starting from the selected week
+    const startOfWeek = new Date(currentDate);
+    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay()); // Start from Sunday of selected week
+    
+    const endDate = new Date(startOfWeek);
+    endDate.setDate(startOfWeek.getDate() + (weeksToShow * 7) - 1); // Last day of the period
+    
+    // Update title to show date range
+    const startStr = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    document.getElementById('calendar-title').textContent = `${startStr} - ${endStr}`;
+    
+    // Update grid template to match number of weeks with fixed row heights
+    const calendarGrid = document.getElementById('calendar-grid');
+    calendarGrid.style.gridTemplateRows = `40px repeat(${weeksToShow}, ${cellHeight}px)`;
+    calendarGrid.style.gridTemplateColumns = 'repeat(7, 1fr)';
+    calendarGrid.style.width = '100%';
+    
+    // Create calendar grid
+    let calendarHTML = '';
+    
+    // Add day headers
+    const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayHeaders.forEach(day => {
+        calendarHTML += `<div style="background: #34495e; color: white; padding: 0.5rem; text-align: center; font-weight: bold; height: 40px; display: flex; align-items: center; justify-content: center; box-sizing: border-box;">${day}</div>`;
+    });
+    
+    // Add calendar days for the calculated number of weeks
+    const totalDays = weeksToShow * 7;
+    for (let i = 0; i < totalDays; i++) {
+        const currentDay = new Date(startOfWeek);
+        currentDay.setDate(startOfWeek.getDate() + i);
+        
+        const isToday = currentDay.toDateString() === new Date().toDateString();
+        
+        // Find events for this day (no tasks displayed on calendar)
+        const itemsForDay = calendarData.filter(item => {
+            const itemDate = parseEventDate(item.start);
+            console.log(`DEBUG: Checking day ${currentDay.toDateString()} vs event date ${itemDate ? itemDate.toDateString() : 'null'} for item:`, item);
+            const match = itemDate && itemDate.toDateString() === currentDay.toDateString();
+            if (match) {
+                console.log(`DEBUG: Found event for ${currentDay.toDateString()}:`, item);
+            }
+            return match;
+        });
+        
+        let dayStyle = `background: white; padding: 0.5rem; height: ${cellHeight}px; border: 1px solid #eee; font-size: 0.9rem; position: relative; box-sizing: border-box; display: flex; flex-direction: column;`;
+        if (isToday) dayStyle += 'background: #e3f2fd; border-color: #2196f3;';
+        
+        let itemIndicators = '';
+        itemsForDay.forEach((item, index) => {
+            // Only events are displayed now (all items are events)
+            const color = '#4285f4';
+            const title = item.title;
+            const clickHandler = `onclick="showEventDetails('${item.id}')"`;
+            
+            // Create clickable event rectangles
+            itemIndicators += `<div class="calendar-event" style="
+                background: ${color}; 
+                color: white; 
+                font-size: 0.75rem; 
+                padding: 0.25rem 0.5rem; 
+                margin: 0.125rem 0; 
+                border-radius: 3px; 
+                cursor: pointer;
+                overflow: hidden; 
+                text-overflow: ellipsis; 
+                white-space: nowrap;
+                border: none;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                transition: transform 0.1s ease;
+            " ${clickHandler} 
+            onmouseover="this.style.transform='scale(1.02)'" 
+            onmouseout="this.style.transform='scale(1)'"
+            title="${title}">
+                ${title.length > 15 ? title.substring(0, 15) + '...' : title}
+            </div>`;
+        });
+        
+        calendarHTML += `
+            <div style="${dayStyle}">
+                <div style="font-weight: ${isToday ? 'bold' : 'normal'}; margin-bottom: 0.25rem; flex-shrink: 0; text-align: left;">
+                    ${currentDay.getDate()}
+                </div>
+                <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 0.125rem;">
+                    ${itemIndicators}
+                </div>
+            </div>
+        `;
+    }
+    
+    document.getElementById('calendar-grid').innerHTML = calendarHTML;
+}
+
+// Tasks are no longer displayed on calendar - only events
+
+// Modal functionality for event details
+function showEventDetails(eventId) {
+    const event = calendarData.find(item => item.id === eventId && item.type === 'event');
+    if (!event) return;
+    
+    // Populate modal content
+    document.getElementById('modal-title').textContent = event.title;
+    
+    const eventDate = parseEventDate(event.start);
+    const endDate = parseEventDate(event.end);
+    const dateStr = eventDate ? eventDate.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    }) : 'Invalid date';
+    
+    const timeStr = event.all_day ? 'All Day' : 
+        (eventDate && endDate ? 
+            `${eventDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ${endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : 
+            '');
+    
+    let modalContent = `
+        <div style="margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <span style="font-size: 1.2rem;">📅</span>
+                <div>
+                    <div style="font-weight: bold; font-size: 1rem;">${dateStr}</div>
+                    <div style="color: #666; font-size: 0.9rem;">${timeStr}</div>
+                </div>
+            </div>
+    `;
+    
+    if (event.location) {
+        modalContent += `
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <span style="font-size: 1rem;">📍</span>
+                <div style="color: #333;">${event.location}</div>
+            </div>
+        `;
+    }
+    
+    if (event.description) {
+        modalContent += `
+            <div style="display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <span style="font-size: 1rem;">📝</span>
+                <div style="color: #333; line-height: 1.4;">${event.description}</div>
+            </div>
+        `;
+    }
+    
+    if (event.attendees && event.attendees.length > 0) {
+        modalContent += `
+            <div style="display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <span style="font-size: 1rem;">👥</span>
+                <div style="color: #333;">
+                    <div style="font-weight: 500;">${event.attendees.length} attendee(s)</div>
+                    <div style="font-size: 0.85rem; color: #666; margin-top: 0.25rem;">
+                        ${event.attendees.slice(0, 3).join(', ')}${event.attendees.length > 3 ? ` +${event.attendees.length - 3} more` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    modalContent += `</div>`;
+    
+    document.getElementById('modal-content-body').innerHTML = modalContent;
+    
+    // Set up Google Calendar link
+    const googleLink = document.getElementById('open-in-google');
+    if (event.html_link) {
+        googleLink.href = event.html_link;
+        googleLink.style.display = 'inline-block';
+    } else {
+        googleLink.style.display = 'none';
+    }
+    
+    // Show modal
+    document.getElementById('event-modal').style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('event-modal').style.display = 'none';
+}
+
+// Modal event listeners
+document.getElementById('close-modal').addEventListener('click', closeModal);
+document.getElementById('event-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+// Keyboard support
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});
+
+// parseTaskDate removed - calendar only shows events now
+
+function parseEventDate(dateStr) {
+    if (!dateStr) return null;
+    
+    // Handle ISO format from Google Calendar
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? null : date;
+}
+
+// Navigation handlers
+document.getElementById('prev-week').addEventListener('click', () => {
+    currentDate.setDate(currentDate.getDate() - 7); // Go back 1 week
+    renderCalendar();
+});
+
+document.getElementById('next-week').addEventListener('click', () => {
+    currentDate.setDate(currentDate.getDate() + 7); // Go forward 1 week
+    renderCalendar();
+});
+
+// Load calendar data when page loads
+loadCalendarData();
+
+// Recalculate calendar on window resize
+window.addEventListener('resize', () => {
+    if (calendarData.length > 0) {
+        renderCalendar();
+    }
+});
+</script>
+
+<style>
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    animation: slideIn 0.3s ease;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 1.5rem 1rem 1.5rem;
+    border-bottom: 1px solid #e1e8ed;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #95a5a6;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+    background: #f8f9fa;
+    color: #2c3e50;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e1e8ed;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Calendar event hover effects */
+.calendar-event:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+}
+
+/* Responsive calendar layout */
+@media (max-width: 768px) {
+    #calendar-grid {
+        font-size: 0.75rem !important;
+    }
+    
+    .card h2 {
+        font-size: 1.2rem;
+    }
+    
+    .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.85rem;
+    }
+    
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+    
+    .modal-header, .modal-body, .modal-footer {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .card h2 {
+        font-size: 1rem;
+    }
+    
+    /* Stack navigation buttons vertically on very small screens */
+    .card > div:first-child {
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: center;
+    }
+    
+    .card > div:first-child > h2 {
+        order: -1;
+    }
+    
+    /* Adjust calendar cells for mobile */
+    #calendar-grid > div:not(:nth-child(-n+7)) {
+        font-size: 0.7rem !important;
+    }
+    
+    .calendar-event {
+        font-size: 0.6rem !important;
+        padding: 0.125rem 0.25rem !important;
+    }
+}
+
+/* Ensure all calendar cells are perfectly uniform */
+#calendar-grid {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#calendar-grid > div {
+    box-sizing: border-box;
+    min-width: 0; /* Prevent flex items from overflowing */
+}
+
+/* Calendar grid day headers */
+#calendar-grid > div:nth-child(-n+7) {
+    background: #34495e !important;
+    color: white !important;
+    font-weight: bold;
+    text-align: center;
+    padding: 0.5rem !important;
+    height: 40px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+}
+
+/* Calendar day cells */
+#calendar-grid > div:nth-child(n+8) {
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to { 
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  navi:
+    build: .
+    ports:
+      - "4999:4999"
+    environment:
+      - BASE_URL=https://your-domain.com
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - FLASK_DEBUG=False
+      - PORT=4999
+    volumes:
+      - ./users:/app/users
+      - ./logs:/app/logs
+      - ./telegram_auth_codes.json:/app/telegram_auth_codes.json
+      - ./telegram_mappings.json:/app/telegram_mappings.json
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4999"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

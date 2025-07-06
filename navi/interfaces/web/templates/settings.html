@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}NAVI - Settings{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>⚙️ Settings</h1>
+    <p>Manage your NAVI account settings and integrations.</p>
+</div>
+
+<div class="card">
+    <h2>📱 Telegram Bot Authentication</h2>
+    <p>Use this code to authenticate your Telegram account with NAVI.</p>
+    
+    <div style="background: #f8f9fa; border: 2px solid #3498db; border-radius: 8px; padding: 1.5rem; margin: 1rem 0;">
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+            <span style="font-weight: bold; color: #2c3e50;">Authentication Code:</span>
+            <div id="auth-code" style="font-family: monospace; font-size: 1.5rem; font-weight: bold; color: #3498db; background: white; padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #ddd;">
+                {{ auth_code or 'Loading...' }}
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button id="copy-code-btn" class="btn" onclick="copyAuthCode()" title="Copy code to clipboard">
+                📋 Copy Code
+            </button>
+            <button class="btn" onclick="refreshAuthCode()" title="Generate new code">
+                🔄 Refresh Code
+            </button>
+        </div>
+        
+        <div id="copy-status" style="margin-top: 0.5rem; font-size: 0.9rem; color: #27ae60; display: none;">
+            ✅ Code copied to clipboard!
+        </div>
+    </div>
+    
+    <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 1rem; margin: 1rem 0;">
+        <h4 style="margin: 0 0 0.5rem 0; color: #856404;">📋 How to authenticate:</h4>
+        <ol style="margin: 0; padding-left: 1.5rem; color: #856404;">
+            <li>Copy the authentication code above</li>
+            <li>Open Telegram and start a chat with the NAVI bot</li>
+            <li>Send the message: <code>/start</code></li>
+            <li>When prompted, send your authentication code</li>
+            <li>You're ready to use NAVI through Telegram! 🎉</li>
+        </ol>
+    </div>
+    
+    <div style="font-size: 0.9rem; color: #666; margin-top: 1rem;">
+        <p><strong>Note:</strong> Codes expire after 30 minutes for security. Generate a new code if needed.</p>
+        <p><strong>Bot Link:</strong> <a href="https://t.me/{{ bot_username or 'your_navi_bot' }}" target="_blank">@{{ bot_username or 'your_navi_bot' }}</a></p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>👤 Account Information</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <div>
+            <strong>Email:</strong><br>
+            <span style="color: #666;">{{ user_email or 'Not available' }}</span>
+        </div>
+        <div>
+            <strong>Name:</strong><br>
+            <span style="color: #666;">{{ user_name or 'Not available' }}</span>
+        </div>
+        <div>
+            <strong>Telegram Status:</strong><br>
+            <span style="color: #27ae60;">{{ telegram_status or 'Not connected' }}</span>
+        </div>
+    </div>
+</div>
+
+<script>
+async function copyAuthCode() {
+    const codeElement = document.getElementById('auth-code');
+    const statusElement = document.getElementById('copy-status');
+    const copyBtn = document.getElementById('copy-code-btn');
+    
+    try {
+        const code = codeElement.textContent.trim();
+        
+        if (code === 'Loading...' || !code) {
+            alert('No code available to copy');
+            return;
+        }
+        
+        // Try modern clipboard API first
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(code);
+        } else {
+            // Fallback for older browsers/iOS
+            const textArea = document.createElement('textarea');
+            textArea.value = code;
+            textArea.style.position = 'fixed';
+            textArea.style.top = '0';
+            textArea.style.left = '0';
+            textArea.style.width = '2em';
+            textArea.style.height = '2em';
+            textArea.style.padding = '0';
+            textArea.style.border = 'none';
+            textArea.style.outline = 'none';
+            textArea.style.boxShadow = 'none';
+            textArea.style.background = 'transparent';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+                throw err;
+            }
+            
+            document.body.removeChild(textArea);
+        }
+        
+        // Show success message
+        statusElement.style.display = 'block';
+        copyBtn.textContent = '✅ Copied!';
+        
+        setTimeout(() => {
+            statusElement.style.display = 'none';
+            copyBtn.textContent = '📋 Copy Code';
+        }, 3000);
+        
+    } catch (err) {
+        console.error('Copy failed:', err);
+        alert('Failed to copy code. Please copy it manually: ' + codeElement.textContent);
+    }
+}
+
+async function refreshAuthCode() {
+    const codeElement = document.getElementById('auth-code');
+    const originalText = codeElement.textContent;
+    
+    try {
+        codeElement.textContent = 'Generating...';
+        
+        const response = await fetch('/api/generate-auth-code', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to generate code');
+        }
+        
+        const data = await response.json();
+        codeElement.textContent = data.code;
+        
+        // Show brief success indication
+        const statusElement = document.getElementById('copy-status');
+        statusElement.textContent = '🔄 New code generated!';
+        statusElement.style.display = 'block';
+        
+        setTimeout(() => {
+            statusElement.style.display = 'none';
+            statusElement.textContent = '✅ Code copied to clipboard!';
+        }, 2000);
+        
+    } catch (err) {
+        console.error('Refresh failed:', err);
+        codeElement.textContent = originalText;
+        alert('Failed to refresh code. Please try again.');
+    }
+}
+
+// Load current auth code when page loads
+async function loadCurrentAuthCode() {
+    const codeElement = document.getElementById('auth-code');
+    
+    try {
+        const response = await fetch('/api/get-auth-code');
+        if (!response.ok) {
+            throw new Error('Failed to load current code');
+        }
+        
+        const data = await response.json();
+        if (data.code) {
+            codeElement.textContent = data.code;
+        } else {
+            // No valid code exists, generate one
+            await refreshAuthCode();
+        }
+    } catch (err) {
+        console.error('Failed to load current code:', err);
+        // Try to generate a new one
+        await refreshAuthCode();
+    }
+}
+
+// Load code on page load
+document.addEventListener('DOMContentLoaded', loadCurrentAuthCode);
+
+// Auto-refresh code every 25 minutes (before 30-minute expiration)
+setInterval(refreshAuthCode, 25 * 60 * 1000);
+</script>
+{% endblock %}

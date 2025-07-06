@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}NAVI - Home{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Welcome to NAVI</h1>
+    <p>Your personal productivity assistant interface. Navigate using the hamburger menu to explore:</p>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 2rem;">
+        <div class="card" style="text-align: center;">
+            <h3>💬 Conversations</h3>
+            <p>View your chat history with NAVI</p>
+            <a href="/conversations" class="btn">View Conversations</a>
+        </div>
+        
+        <div class="card" style="text-align: center;">
+            <h3>🔧 API Calls</h3>
+            <p>See all function calls and tool usage</p>
+            <a href="/api-calls" class="btn">View API Calls</a>
+        </div>
+        
+        <div class="card" style="text-align: center;">
+            <h3>🎯 Goals & Tasks</h3>
+            <p>Manage your goals and tasks</p>
+            <a href="/goals-tasks" class="btn">View Goals & Tasks</a>
+        </div>
+        
+        <div class="card" style="text-align: center;">
+            <h3>📅 Calendar</h3>
+            <p>View tasks and events on calendar</p>
+            <a href="/calendar" class="btn">View Calendar</a>
+        </div>
+        
+        <div class="card" style="text-align: center;">
+            <h3>👤 Profile</h3>
+            <p>View and manage your profile</p>
+            <a href="/profile" class="btn">View Profile</a>
+        </div>
+        
+        <div class="card" style="text-align: center;">
+            <h3>⚙️ Settings</h3>
+            <p>Get Telegram authentication code</p>
+            <a href="/settings" class="btn">View Settings</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
