@@ -25,24 +25,25 @@ def cleanup_existing_processes():
     
     # Kill processes on port 4999 (web UI)
     try:
-        subprocess.run(['lsof', '-ti:4999'], capture_output=True, check=True, text=True)
-        subprocess.run(['lsof', '-ti:4999', '|', 'xargs', 'kill', '-9'], shell=True)
-        print("   ✅ Stopped existing web UI processes")
-    except subprocess.CalledProcessError:
-        pass  # No processes running on port 4999
+        result = subprocess.run(['lsof', '-ti:4999'], capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout.strip():
+            subprocess.run(['lsof', '-ti:4999', '|', 'xargs', 'kill', '-9'], shell=True)
+            print("   ✅ Stopped existing web UI processes")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass  # No processes running on port 4999 or lsof not available
     
     # Kill existing telegram bot processes
     try:
-        subprocess.run(['pkill', '-f', 'telegram_bot.py'], check=True)
+        subprocess.run(['pkill', '-f', 'telegram_bot.py'])
         print("   ✅ Stopped existing Telegram bot processes")
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         pass  # No telegram bot processes running
     
     # Kill existing run_telegram.py processes
     try:
-        subprocess.run(['pkill', '-f', 'run_telegram.py'], check=True)
+        subprocess.run(['pkill', '-f', 'run_telegram.py'])
         print("   ✅ Stopped existing run_telegram.py processes")
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         pass  # No run_telegram.py processes running
     
     time.sleep(2)
