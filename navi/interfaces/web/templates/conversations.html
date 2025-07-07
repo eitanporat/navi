@@ -28,9 +28,10 @@ async function loadConversations() {
         allItems.forEach((item, index) => {
             if (item.type === 'message') {
                 const isUser = item.role === 'user';
-                const roleIcon = isUser ? '👤' : '🤖';
-                const roleName = isUser ? 'You' : 'NAVI';
-                const bgColor = isUser ? '#e3f2fd' : '#f8f9fa';
+                const isSystem = item.role === 'system';
+                const roleIcon = isSystem ? '⚙️' : (isUser ? '👤' : '🤖');
+                const roleName = isSystem ? 'SYSTEM' : (isUser ? 'You' : 'NAVI');
+                const bgColor = isSystem ? '#f0f0f0' : (isUser ? '#e3f2fd' : '#f8f9fa');
                 
                 // Extract actual message content (remove context wrapper if present)
                 let content = item.content;
@@ -39,8 +40,21 @@ async function loadConversations() {
                     if (match) content = match[1];
                 }
                 
+                // For system messages, extract and format the system prompt
+                if (isSystem) {
+                    const systemPromptMatch = content.match(/<system_prompt>(.*?)<\/system_prompt>/s);
+                    if (systemPromptMatch) {
+                        content = `<div style="background: #e8e8e8; border-left: 4px solid #666; padding: 0.75rem; border-radius: 4px;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <span style="font-size: 1.2rem;">📋</span>
+                                <strong style="color: #666; font-size: 0.9rem;">SYSTEM PROMPT</strong>
+                            </div>
+                            <div style="color: #444; white-space: pre-wrap; font-family: 'Monaco', 'Menlo', monospace; font-size: 0.85rem;">${systemPromptMatch[1].trim()}</div>
+                        </div>`;
+                    }
+                }
                 // For NAVI messages, extract and display both strategize and message sections
-                if (!isUser) {
+                else if (!isUser && item.role === 'model') {
                     const strategizeMatch = content.match(/<strategize>(.*?)<\/strategize>/s);
                     const messageMatch = content.match(/<message>(.*?)<\/message>/s);
                     

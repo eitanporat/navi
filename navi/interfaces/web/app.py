@@ -295,7 +295,7 @@ def api_conversations():
         # Process chat history
         model_message_index = 0  # Track model messages for API log matching
         for msg in chat_history:
-            if msg.get('role') in ['user', 'model']:
+            if msg.get('role') in ['user', 'model', 'system']:
                 # Extract text from parts
                 text_content = ""
                 function_calls = []

@@ -41,15 +41,31 @@ def validate_timezone(timezone_str: str) -> bool:
 
 
 def get_current_date(state_manager: StateManager):
-    """Get the current date in DD/MM/YY format"""
-    now = datetime.now()
-    return f"Today's date: {now.strftime('%d/%m/%y')} (DD/MM/YY format)"
+    """Get the current date in DD/MM/YY format using user's timezone"""
+    user_tz = get_user_timezone(state_manager)
+    try:
+        import zoneinfo
+        from datetime import datetime
+        tz = zoneinfo.ZoneInfo(user_tz)
+        now = datetime.now(tz)
+    except:
+        # Fallback to UTC if timezone parsing fails
+        now = datetime.now()
+    return f"Today's date: {now.strftime('%d/%m/%y')} (DD/MM/YY format, {user_tz} timezone)"
 
 
 def get_current_datetime(state_manager: StateManager):
-    """Get the current date and time in DD/MM/YY HH:MM format"""
-    now = datetime.now()
-    return f"Current date and time: {now.strftime('%d/%m/%y %H:%M')} (DD/MM/YY HH:MM format)"
+    """Get the current date and time in DD/MM/YY HH:MM format using user's timezone"""
+    user_tz = get_user_timezone(state_manager)
+    try:
+        import zoneinfo
+        from datetime import datetime
+        tz = zoneinfo.ZoneInfo(user_tz)
+        now = datetime.now(tz)
+    except:
+        # Fallback to UTC if timezone parsing fails
+        now = datetime.now()
+    return f"Current date and time: {now.strftime('%d/%m/%y %H:%M')} (DD/MM/YY HH:MM format, {user_tz} timezone)"
 
 
 def add_user_detail(state_manager: StateManager, detail_key: str, detail_value: str):

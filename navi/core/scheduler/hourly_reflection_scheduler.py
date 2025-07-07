@@ -110,11 +110,10 @@ class HourlyReflectionScheduler:
                 # AI decided to reach out to user
                 await self._send_proactive_message(telegram_id, user_email, corrected_response.message_text)
                 
-                # Add to chat history for conversation UI
-                # Mark as system prompt
+                # Add to chat history for conversation UI with system role
                 self._add_to_chat_history(state_manager, 
                     role="system",
-                    content=f"[SYSTEM: 4-Hour Reflection Check]\n{reflection_prompt}",
+                    content=f"<system_prompt>\n[SYSTEM: 4-Hour Reflection Check]\n{reflection_prompt}\n</system_prompt>",
                     timestamp=datetime.now().isoformat()
                 )
                 
@@ -141,10 +140,10 @@ class HourlyReflectionScheduler:
                     "formatting_corrections": getattr(corrected_response, 'formatting_corrections', [])
                 })
             else:
-                # AI decided to stay silent - still log to chat history
+                # AI decided to stay silent - still log to chat history with system role
                 self._add_to_chat_history(state_manager,
                     role="system",
-                    content=f"[SYSTEM: 4-Hour Reflection Check - Silent]\n{reflection_prompt}",
+                    content=f"<system_prompt>\n[SYSTEM: 4-Hour Reflection Check - Silent]\n{reflection_prompt}\n</system_prompt>",
                     timestamp=datetime.now().isoformat()
                 )
                 
@@ -176,7 +175,15 @@ class HourlyReflectionScheduler:
             
     def _build_comprehensive_reflection_prompt(self, state: Dict, user_email: str) -> str:
         """Build a concise 4-hour reflection prompt"""
-        current_time = datetime.now()
+        # Get user's timezone-aware current time
+        user_tz = self._get_user_timezone(state)
+        try:
+            import zoneinfo
+            tz = zoneinfo.ZoneInfo(user_tz)
+            current_time = datetime.now(tz)
+        except:
+            # Fallback to UTC if timezone parsing fails
+            current_time = datetime.now()
         
         # Get recent conversation data
         chat_history = state.get('chat_history', [])
@@ -197,7 +204,7 @@ class HourlyReflectionScheduler:
         # Build simplified prompt
         prompt = f"""🚨 4-HOUR REFLECTION TIME 🚨
 
-**CURRENT TIME:** {current_time.strftime('%Y-%m-%d %H:%M:%S')} ({current_time.strftime('%A')})
+**CURRENT TIME:** {current_time.strftime('%Y-%m-%d %H:%M:%S')} ({current_time.strftime('%A')}) [{user_tz}]
 
 **CONTEXT:**
 - User: {user_email}
@@ -237,6 +244,11 @@ Message: <strategize>User mentioned wanting to go swimming twice weekly but hasn
 Conduct your analysis now."""
 
         return prompt
+    
+    def _get_user_timezone(self, state: Dict) -> str:
+        """Get user's timezone preference, with fallback to UTC"""
+        user_prefs = state.get('user_preferences', {})
+        return user_prefs.get('timezone', 'UTC')
         
     def _validate_and_fix_response(self, response, user_email: str):
         """
@@ -339,8 +351,9 @@ Conduct your analysis now."""
                 logger.warning(f"Empty message after XML tag removal for user {user_email}")
                 return
             
+            
             # Basic length check for safety (no pattern matching)
-            if len(clean_message) > 1000:
+            if len(clean_message) > 500:
                 logger.warning(f"Message too long ({len(clean_message)} chars) for user {user_email}, defaulting to silent")
                 return
             

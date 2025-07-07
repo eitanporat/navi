@@ -173,8 +173,29 @@ This is an AUTOMATED SYSTEM-GENERATED progress check-in that has reached its sch
 
 **IMPORTANT:** The user is NOT requesting a check-in - YOU are initiating it because the scheduled time has arrived."""
 
+            # Add system prompt to chat history with proper formatting
+            self._add_to_chat_history(state_manager,
+                role="system",
+                content=f"<system_prompt>\n[SYSTEM: Progress Tracker Check-In]\n{check_in_prompt}\n</system_prompt>",
+                timestamp=datetime.now().isoformat()
+            )
+            
             # Generate AI response
             response = await engine.process_message(check_in_prompt)
+            
+            # Add AI response to chat history with proper tags
+            if response.strategize_text or response.message_text:
+                full_response = ""
+                if response.strategize_text:
+                    full_response += f"<strategize>{response.strategize_text}</strategize>\n"
+                if response.message_text:
+                    full_response += f"<message>{response.message_text}</message>"
+                
+                self._add_to_chat_history(state_manager,
+                    role="model",
+                    content=full_response,
+                    timestamp=datetime.now().isoformat()
+                )
             
             # Extract the message text (remove any XML tags)
             if response.message_text:
@@ -236,6 +257,29 @@ This is an AUTOMATED SYSTEM-GENERATED progress check-in that has reached its sch
                 
         logger.warning(f"Could not parse datetime: {datetime_str}")
         return None
+    
+    def _add_to_chat_history(self, state_manager: StateManager, role: str, content: str, timestamp: str):
+        """Add a message to chat history for UI display"""
+        try:
+            state = state_manager.get_state()
+            
+            # Initialize chat_history if not exists
+            if 'chat_history' not in state:
+                state['chat_history'] = []
+            
+            # Create message in the same format as regular conversations
+            message = {
+                'role': role,
+                'parts': [{'text': content}],
+                'timestamp': timestamp
+            }
+            
+            state['chat_history'].append(message)
+            
+            # Don't save here - let the engine save after all updates
+            
+        except Exception as e:
+            logger.error(f"Error adding to chat history: {e}")
         
     def _load_telegram_mappings(self) -> Dict[str, str]:
         """Load telegram ID to email mappings"""
