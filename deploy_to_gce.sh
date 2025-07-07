@@ -85,11 +85,11 @@ RestartSec=10
 WantedBy=multi-user.target
 SERVICE
 
-# Configure nginx
+# Configure nginx (basic HTTP first, SSL will be added later)
 sudo tee /etc/nginx/sites-available/navi > /dev/null << 'NGINX'
 server {
     listen 80;
-    server_name _;
+    server_name 34-56-132-229.nip.io;
 
     location / {
         proxy_pass http://localhost:4999;
@@ -110,6 +110,46 @@ sudo nginx -t && sudo systemctl restart nginx
 sudo systemctl daemon-reload
 sudo systemctl enable navi
 sudo systemctl start navi
+
+# Install certbot for SSL
+sudo apt-get update
+sudo apt-get install -y certbot python3-certbot-nginx
+
+# Get SSL certificate and configure HTTPS
+sudo certbot --nginx -d 34-56-132-229.nip.io --non-interactive --agree-tos --email noreply@example.com
+
+# If certbot fails to auto-configure, manually configure SSL
+if ! sudo nginx -t; then
+    echo "📄 Manually configuring SSL..."
+    sudo tee /etc/nginx/sites-available/navi > /dev/null << 'SSL_NGINX'
+server {
+    listen 80;
+    server_name 34-56-132-229.nip.io;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name 34-56-132-229.nip.io;
+
+    ssl_certificate /etc/letsencrypt/live/34-56-132-229.nip.io/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/34-56-132-229.nip.io/privkey.pem;
+    
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384;
+    ssl_prefer_server_ciphers on;
+
+    location / {
+        proxy_pass http://localhost:4999;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
+SSL_NGINX
+    sudo nginx -t && sudo systemctl reload nginx
+fi
 
 echo "✅ NAVI setup complete!"
 echo "📊 Check service status with: sudo systemctl status navi"
