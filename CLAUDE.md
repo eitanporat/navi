@@ -254,6 +254,15 @@ sudo systemctl restart navi
 
 ## Latest Features ✅
 
+### System Prompt Display in UI (New!)
+System-generated prompts are now properly displayed in the conversations UI:
+- System messages use `role="system"` and are wrapped in `<system_prompt>` tags
+- Distinct visual styling with gray background and system icon (⚙️)
+- Clear "SYSTEM PROMPT" label for transparency
+- Works for both 4-hour reflections and progress tracker check-ins
+- AI responses maintain `<message>` and `<strategize>` tag structure
+- Changed from hourly to 4-hour reflection intervals for better user experience
+
 ### Automated Progress Tracker Notifications
 NAVI includes an automated progress tracking system that sends reminder notifications at scheduled times:
 
